@@ -47,7 +47,8 @@ main.exe
 
 ## Controls
 
-| :--- | :---|
+| Key | Action |
+| :--- | :--- |
 | **Left Click** | Add selected element |
 | **Right Click** | Erase cell (YET TO BE ADDED) |
 | **Scroll Wheel** | Change element (YET TO BE ADDED) |
