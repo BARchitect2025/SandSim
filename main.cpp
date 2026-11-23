@@ -103,27 +103,10 @@ int main() {
 
     glPointSize(4.0f);
 
-    int frame = 0;
-
-    float deltas[60];
-
     while (!glfwWindowShouldClose(window)) {
         float current_frame = static_cast<float>(glfwGetTime());
         delta = current_frame - last_frame;
         last_frame = current_frame;
-
-        deltas[frame] = delta;
-
-        if (frame == 59) {
-            float avg_delta = 0.0f;
-            for (int i = 0; i < 60; ++i) {
-                avg_delta += deltas[i];
-            }
-            avg_delta /= 60.0f;
-
-            std::cout << 1.0f / avg_delta << std::endl;
-            frame = -1;
-        }
 
         if (mouse_button_pressed) {
             int gx = mouse_pos_pixels_x / 4;
@@ -201,8 +184,6 @@ int main() {
 
         glfwSwapBuffers(window);
         glfwPollEvents();
-
-        ++frame;
     }
 
     glDeleteVertexArrays(1, &vao);
