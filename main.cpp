@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <cstddef>
+#include <random>
 
 const char* vs_source = "#version 330 core\n"
 "layout (location = 0) in vec2 aPos;\n"
@@ -22,6 +23,26 @@ const char* fs_source = "#version 330 core\n"
 "color = vColor;\n"
 "}\n";
 
+enum class ParticleType {
+    SAND,
+    WATER,
+    EMPTY
+};
+
+struct Color {
+    uint8_t r, g, b, a;
+};
+
+const Color SAND_COLOR = {204, 188, 138, 255};
+const Color WATER_COLOR = {14, 135, 204, 255};
+
+struct Particle {
+    float x, y;
+    uint8_t r, g, b, a;
+
+    ParticleType type;
+};
+
 bool mouse_button_pressed = false;
 
 int WIDTH = 800, HEIGHT = 600;
@@ -31,24 +52,21 @@ float last_frame = 0.0f;
 
 int mouse_pos_pixels_x = 0, mouse_pos_pixels_y = 0;
 
-enum class ParticleType {
-    SAND,
-    WATER,
-    EMPTY
-};
+ParticleType selected_type = ParticleType::SAND;
+int selected_type_num = 0;
 
-struct Particle {
-    float x, y;
-    uint8_t r, g, b, a;
-
-    ParticleType type;
-};
-
-GLuint compileShaders(const char *vs_source, const char *fs_source);
+GLuint compile_shaders(const char *vs_source, const char *fs_source);
 void mouse_pos_callback(GLFWwindow* window, double xpos, double ypos);
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
+void mouse_scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+
+void swap_particles(Particle &a, Particle &b);
 
 int main() {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<>dist(1, 99);
+
     // Init GLFW
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -61,10 +79,10 @@ int main() {
 
     for (int i = 0; i < 200; ++i) {
         for (int j = 0; j < 150; ++j) {
-            if (j % 4 == 0 && i < 25) {
-                particles[i][j] = Particle {(float)i / 200.0f, (float)j / 150.0f, 204, 188, 138, 255, ParticleType::SAND};
+            if (j % 4 == 0 && i < 35 && i % 2 == 0) {
+                particles[i][j] = Particle {((float)i + 0.5f) / 200.0f, ((float)j + 0.5f) / 150.0f, 204, 188, 138, 255, ParticleType::SAND};
             } else {
-                particles[i][j] = Particle {(float)i / 200.0f, (float)j / 150.0f, 0, 0, 0, 255, ParticleType::EMPTY};
+                particles[i][j] = Particle {((float)i + 0.5f) / 200.0f, ((float)j + 0.5f) / 150.0f, 0, 0, 0, 255, ParticleType::EMPTY};
             }
         }
     }
@@ -78,13 +96,14 @@ int main() {
     glfwMakeContextCurrent(window);
     glfwSetCursorPosCallback(window, mouse_pos_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
+    glfwSetScrollCallback(window, mouse_scroll_callback);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
 
-    GLuint program = compileShaders(vs_source, fs_source);
+    GLuint program = compile_shaders(vs_source, fs_source);
 
     GLuint vao, vbo;
     glGenVertexArrays(1, &vao);
@@ -103,65 +122,114 @@ int main() {
 
     glPointSize(4.0f);
 
+    float accumulator = 0.0f;
+    const float TIMESTEP = 1.0f / 45.0f;
+
     while (!glfwWindowShouldClose(window)) {
         float current_frame = static_cast<float>(glfwGetTime());
         delta = current_frame - last_frame;
         last_frame = current_frame;
+        accumulator += delta;
 
-        if (mouse_button_pressed) {
-            int gx = mouse_pos_pixels_x / 4;
-            int gy = mouse_pos_pixels_y / 4;
+        while (accumulator > TIMESTEP) {
+            accumulator -= TIMESTEP;
 
-            if (gx >= 0 && gx < 200 && gy >= 0 && gy < 150) {
-                if (particles[gx][gy].type == ParticleType::EMPTY) {
-                    particles[gx][gy].r = 204;
-                    particles[gx][gy].g = 188;
-                    particles[gx][gy].b = 138;
-                    particles[gx][gy].a = 255;
-                    particles[gx][gy].type = ParticleType::SAND;
+            if (mouse_button_pressed) {
+                int gx = mouse_pos_pixels_x / 4;
+                int gy = mouse_pos_pixels_y / 4;
+
+                if (gx >= 0 && gx < 200 && gy >= 0 && gy < 150) {
+                    if (particles[gx][gy].type == ParticleType::EMPTY) {
+                        if (selected_type == ParticleType::SAND) {
+                            particles[gx][gy].r = SAND_COLOR.r;
+                            particles[gx][gy].g = SAND_COLOR.g;
+                            particles[gx][gy].b = SAND_COLOR.b;
+                            particles[gx][gy].a = SAND_COLOR.a;
+                        } else if (selected_type == ParticleType::WATER) {
+                            particles[gx][gy].r = WATER_COLOR.r;
+                            particles[gx][gy].g = WATER_COLOR.g;
+                            particles[gx][gy].b = WATER_COLOR.b;
+                            particles[gx][gy].a = WATER_COLOR.a;
+                        }
+                        particles[gx][gy].type = selected_type;
+                    }
                 }
             }
-        }
 
-        for (int i = 0; i < 200; ++i) {
-            for (int j = 1; j < 150; ++j) {
-                if (particles[i][j].type == ParticleType::SAND) {
-                    if (particles[i][j - 1].type == ParticleType::EMPTY) {
-                        particles[i][j - 1].r = particles[i][j].r;
-                        particles[i][j - 1].g = particles[i][j].g;
-                        particles[i][j - 1].b = particles[i][j].b;
-                        particles[i][j - 1].a = particles[i][j].a;
-                        particles[i][j - 1].type = particles[i][j].type;
+            bool updated[200][150] = {false};
 
-                        particles[i][j].r = 0;
-                        particles[i][j].g = 0;
-                        particles[i][j].b = 0;
-                        particles[i][j].a = 255;
-                        particles[i][j].type = ParticleType::EMPTY;
-                    } else if (i > 0 && particles[i - 1][j - 1].type == ParticleType::EMPTY) {
-                        particles[i - 1][j - 1].r = particles[i][j].r;
-                        particles[i - 1][j - 1].g = particles[i][j].g;
-                        particles[i - 1][j - 1].b = particles[i][j].b;
-                        particles[i - 1][j - 1].a = particles[i][j].a;
-                        particles[i - 1][j - 1].type = particles[i][j].type;
+            for (int j = 0; j < 150; ++j) {
+                for (int i = 0; i < 200; ++i) {
+                    if (updated[i][j] || particles[i][j].type == ParticleType::EMPTY) {
+                        continue;
+                    }
 
-                        particles[i][j].r = 0;
-                        particles[i][j].g = 0;
-                        particles[i][j].b = 0;
-                        particles[i][j].a = 255;
-                        particles[i][j].type = ParticleType::EMPTY;
-                    } else if (i < 199 && particles[i + 1][j - 1].type == ParticleType::EMPTY) {
-                        particles[i + 1][j - 1].r = particles[i][j].r;
-                        particles[i + 1][j - 1].g = particles[i][j].g;
-                        particles[i + 1][j - 1].b = particles[i][j].b;
-                        particles[i + 1][j - 1].a = particles[i][j].a;
-                        particles[i + 1][j - 1].type = particles[i][j].type;
+                    if (particles[i][j].type == ParticleType::SAND && j > 0) {
+                        if (particles[i][j - 1].type == ParticleType::EMPTY) {
+                            swap_particles(particles[i][j], particles[i][j - 1]);
+                            updated[i][j - 1] = true;
+                        } else if (i > 0 && particles[i - 1][j - 1].type == ParticleType::EMPTY) {
+                            swap_particles(particles[i][j], particles[i - 1][j - 1]);
+                            updated[i - 1][j - 1] = true;
+                        } else if (i < 199 && particles[i + 1][j - 1].type == ParticleType::EMPTY) {
+                            swap_particles(particles[i][j], particles[i + 1][j - 1]);
+                            updated[i + 1][j - 1] = true;
+                        } else if (i > 0 && particles[i - 1][j - 1].type == ParticleType::WATER) {
+                            swap_particles(particles[i][j], particles[i - 1][j - 1]);
+                            updated[i - 1][j - 1] = true;
+                        } else if (i < 199 && particles[i + 1][j - 1].type == ParticleType::WATER) {
+                            swap_particles(particles[i][j], particles[i + 1][j - 1]);
+                            updated[i + 1][j - 1] = true;
+                        } else if (particles[i][j - 1].type == ParticleType::WATER) {
+                            swap_particles(particles[i][j], particles[i][j - 1]);
+                            updated[i][j - 1] = true;
+                        }
+                    } else if (particles[i][j].type == ParticleType::WATER) {
+                        bool moved = false;
 
-                        particles[i][j].r = 0;
-                        particles[i][j].g = 0;
-                        particles[i][j].b = 0;
-                        particles[i][j].a = 255;
-                        particles[i][j].type = ParticleType::EMPTY;
+                        if (j > 0) {
+                            // Down
+                            if (particles[i][j - 1].type == ParticleType::EMPTY) {
+                                swap_particles(particles[i][j], particles[i][j - 1]);
+                                updated[i][j - 1] = true;
+                                moved = true;
+                            } else {
+                                bool can_diag_l = (i > 0 && particles[i - 1][j - 1].type == ParticleType::EMPTY);
+                                bool can_diag_r = (i < 199 && particles[i + 1][j - 1].type == ParticleType::EMPTY);
+
+                                if (can_diag_l && can_diag_r) {
+                                    int dir = (dist(gen) < 50) ? -1 : 1;
+                                    swap_particles(particles[i][j], particles[i + dir][j - 1]);
+                                    updated[i + dir][j - 1] = true;
+                                    moved = true;
+                                } else if (can_diag_l) {
+                                    swap_particles(particles[i][j], particles[i - 1][j - 1]);
+                                    updated[i - 1][j - 1] = true;
+                                    moved = true;
+                                } else if (can_diag_r) {
+                                    swap_particles(particles[i][j], particles[i + 1][j - 1]);
+                                    updated[i + 1][j - 1] = true;
+                                    moved = true;
+                                }
+                            }
+                        }
+
+                        if (!moved) {
+                            bool can_left = (i > 0 && particles[i - 1][j].type == ParticleType::EMPTY);
+                            bool can_right = (i < 199 && particles[i + 1][j].type == ParticleType::EMPTY);
+
+                            if (can_left && can_right) {
+                                int dir = (dist(gen) < 50) ? -1 : 1;
+                                swap_particles(particles[i][j], particles[i + dir][j]);
+                                updated[i + dir][j] = true;
+                            } else if (can_left) {
+                                swap_particles(particles[i][j], particles[i - 1][j]);
+                                updated[i - 1][j] = true;
+                            } else if (can_right) {
+                                swap_particles(particles[i][j], particles[i + 1][j]);
+                                updated[i + 1][j] = true;
+                            }
+                        }
                     }
                 }
             }
@@ -193,7 +261,7 @@ int main() {
     return 0;
 }
 
-GLuint compileShaders(const char *vs_source, const char *fs_source) {
+GLuint compile_shaders(const char *vs_source, const char *fs_source) {
     GLuint vs;
     GLuint fs;
     GLuint program;
@@ -228,4 +296,27 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
     } else {
         mouse_button_pressed = false;
     }
+}
+
+void mouse_scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+    selected_type_num += (int)yoffset;
+
+    if (selected_type_num > 1) {
+        selected_type_num = 0;
+    } else if (selected_type_num < 0) {
+        selected_type_num = 1;
+    }
+
+    switch (selected_type_num) {
+        case 0: selected_type = ParticleType::SAND; break;
+        case 1: selected_type = ParticleType::WATER; break;
+    }
+}
+
+void swap_particles(Particle &a, Particle &b) {
+    std::swap(a.r, b.r);
+    std::swap(a.g, b.g);
+    std::swap(a.b, b.b);
+    std::swap(a.a, b.a);
+    std::swap(a.type, b.type);
 }

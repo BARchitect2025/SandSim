@@ -51,5 +51,5 @@ main.exe
 | :--- | :--- |
 | **Left Click** | Add selected element |
 | **Right Click** | Erase cell (YET TO BE ADDED) |
-| **Scroll Wheel** | Change element (YET TO BE ADDED) |
+| **Scroll Wheel** | Change element |
 | **Shift + Scroll Wheel** | Change brush size (YET TO BE ADDED) |
