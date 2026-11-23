@@ -79,8 +79,9 @@ int main() {
 
     for (int i = 0; i < 200; ++i) {
         for (int j = 0; j < 150; ++j) {
-            if (j % 4 == 0 && i < 35 && i % 2 == 0) {
-                particles[i][j] = Particle {((float)i + 0.5f) / 200.0f, ((float)j + 0.5f) / 150.0f, 204, 188, 138, 255, ParticleType::SAND};
+            if (j % 4 == 0 && i < 35 && sin((double)i) > 0.5 == 0) {
+                uint8_t r = (uint8_t)((dist(gen) - 50) / 5);
+                particles[i][j] = Particle {((float)i + 0.5f) / 200.0f, ((float)j + 0.5f) / 150.0f, SAND_COLOR.r + r, SAND_COLOR.g + r, SAND_COLOR.b + r, SAND_COLOR.a, ParticleType::SAND};
             } else {
                 particles[i][j] = Particle {((float)i + 0.5f) / 200.0f, ((float)j + 0.5f) / 150.0f, 0, 0, 0, 255, ParticleType::EMPTY};
             }
@@ -97,6 +98,8 @@ int main() {
     glfwSetCursorPosCallback(window, mouse_pos_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetScrollCallback(window, mouse_scroll_callback);
+
+    glfwSwapInterval(0);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         std::cout << "Failed to initialize GLAD" << std::endl;
@@ -123,7 +126,7 @@ int main() {
     glPointSize(4.0f);
 
     float accumulator = 0.0f;
-    const float TIMESTEP = 1.0f / 45.0f;
+    const float TIMESTEP = 1.0f / 60.0f;
 
     while (!glfwWindowShouldClose(window)) {
         float current_frame = static_cast<float>(glfwGetTime());
@@ -140,15 +143,16 @@ int main() {
 
                 if (gx >= 0 && gx < 200 && gy >= 0 && gy < 150) {
                     if (particles[gx][gy].type == ParticleType::EMPTY) {
+                        int r = (int)((dist(gen) - 50) / 5);
                         if (selected_type == ParticleType::SAND) {
-                            particles[gx][gy].r = SAND_COLOR.r;
-                            particles[gx][gy].g = SAND_COLOR.g;
-                            particles[gx][gy].b = SAND_COLOR.b;
+                            particles[gx][gy].r = SAND_COLOR.r + r;
+                            particles[gx][gy].g = SAND_COLOR.g + r;
+                            particles[gx][gy].b = SAND_COLOR.b + r;
                             particles[gx][gy].a = SAND_COLOR.a;
                         } else if (selected_type == ParticleType::WATER) {
-                            particles[gx][gy].r = WATER_COLOR.r;
-                            particles[gx][gy].g = WATER_COLOR.g;
-                            particles[gx][gy].b = WATER_COLOR.b;
+                            particles[gx][gy].r = WATER_COLOR.r + r;
+                            particles[gx][gy].g = WATER_COLOR.g + r;
+                            particles[gx][gy].b = WATER_COLOR.b + r;
                             particles[gx][gy].a = WATER_COLOR.a;
                         }
                         particles[gx][gy].type = selected_type;
@@ -167,22 +171,38 @@ int main() {
                     if (particles[i][j].type == ParticleType::SAND && j > 0) {
                         if (particles[i][j - 1].type == ParticleType::EMPTY) {
                             swap_particles(particles[i][j], particles[i][j - 1]);
+                            updated[i][j] = true;
                             updated[i][j - 1] = true;
                         } else if (i > 0 && particles[i - 1][j - 1].type == ParticleType::EMPTY) {
                             swap_particles(particles[i][j], particles[i - 1][j - 1]);
+                            updated[i][j] = true;
                             updated[i - 1][j - 1] = true;
                         } else if (i < 199 && particles[i + 1][j - 1].type == ParticleType::EMPTY) {
                             swap_particles(particles[i][j], particles[i + 1][j - 1]);
+                            updated[i][j] = true;
                             updated[i + 1][j - 1] = true;
-                        } else if (i > 0 && particles[i - 1][j - 1].type == ParticleType::WATER) {
-                            swap_particles(particles[i][j], particles[i - 1][j - 1]);
-                            updated[i - 1][j - 1] = true;
-                        } else if (i < 199 && particles[i + 1][j - 1].type == ParticleType::WATER) {
-                            swap_particles(particles[i][j], particles[i + 1][j - 1]);
-                            updated[i + 1][j - 1] = true;
-                        } else if (particles[i][j - 1].type == ParticleType::WATER) {
-                            swap_particles(particles[i][j], particles[i][j - 1]);
-                            updated[i][j - 1] = true;
+                        } else {
+                            bool down_left = (i > 0 && particles[i - 1][j - 1].type == ParticleType::WATER);
+                            bool down_right = (i < 199 && particles[i + 1][j - 1].type == ParticleType::WATER);
+
+                            if (particles[i][j - 1].type == ParticleType::WATER) {
+                                swap_particles(particles[i][j], particles[i][j - 1]);
+                                updated[i][j] = true;
+                                updated[i][j - 1] = true;
+                            } else if (down_left && down_right) {
+                                int dir = (dist(gen) < 50) ? -1 : 1;
+                                swap_particles(particles[i][j], particles[i + dir][j - 1]);
+                                updated[i][j] = true;
+                                updated[i + dir][j - 1] = true;
+                            } else if (down_left) {
+                                swap_particles(particles[i][j], particles[i - 1][j - 1]);
+                                updated[i][j] = true;
+                                updated[i - 1][j - 1] = true;
+                            } else if (down_right) {
+                                swap_particles(particles[i][j], particles[i + 1][j - 1]);
+                                updated[i][j] = true;
+                                updated[i + 1][j - 1] = true;
+                            }
                         }
                     } else if (particles[i][j].type == ParticleType::WATER) {
                         bool moved = false;
@@ -191,6 +211,7 @@ int main() {
                             // Down
                             if (particles[i][j - 1].type == ParticleType::EMPTY) {
                                 swap_particles(particles[i][j], particles[i][j - 1]);
+                                updated[i][j] = true;
                                 updated[i][j - 1] = true;
                                 moved = true;
                             } else {
@@ -200,14 +221,17 @@ int main() {
                                 if (can_diag_l && can_diag_r) {
                                     int dir = (dist(gen) < 50) ? -1 : 1;
                                     swap_particles(particles[i][j], particles[i + dir][j - 1]);
+                                    updated[i][j] = true;
                                     updated[i + dir][j - 1] = true;
                                     moved = true;
                                 } else if (can_diag_l) {
                                     swap_particles(particles[i][j], particles[i - 1][j - 1]);
+                                    updated[i][j] = true;
                                     updated[i - 1][j - 1] = true;
                                     moved = true;
                                 } else if (can_diag_r) {
                                     swap_particles(particles[i][j], particles[i + 1][j - 1]);
+                                    updated[i][j] = true;
                                     updated[i + 1][j - 1] = true;
                                     moved = true;
                                 }
@@ -221,12 +245,15 @@ int main() {
                             if (can_left && can_right) {
                                 int dir = (dist(gen) < 50) ? -1 : 1;
                                 swap_particles(particles[i][j], particles[i + dir][j]);
+                                updated[i][j] = true;
                                 updated[i + dir][j] = true;
                             } else if (can_left) {
                                 swap_particles(particles[i][j], particles[i - 1][j]);
+                                updated[i][j] = true;
                                 updated[i - 1][j] = true;
                             } else if (can_right) {
                                 swap_particles(particles[i][j], particles[i + 1][j]);
+                                updated[i][j] = true;
                                 updated[i + 1][j] = true;
                             }
                         }
