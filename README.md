@@ -17,23 +17,23 @@ cd sandsim
 
 #### Linux:
 ```bash
-g++ src/main.cpp src/particle.cpp src/sand_sim.cpp src/glad.c -Iinclude -o main -lGL -lglfw -ldl
+g++ src/main.cpp src/particle.cpp src/sand_sim.cpp src/glad.c -Iinclude -o sandsim -lGL -lglfw -ldl
 ```
 
 #### MacOS (Homebrew):
 ```bash
-g++ src/main.cpp src/particle.cpp src/sand_sim.cpp src/glad.c -Iinclude -I/opt/homebrew/include -L/opt/homebrew/lib -o main -lglfw -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
+g++ src/main.cpp src/particle.cpp src/sand_sim.cpp src/glad.c -Iinclude -I/opt/homebrew/include -L/opt/homebrew/lib -o sandsim -lglfw -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
 ```
 
 #### Windows:
 * **MinGW / MSYS2:**
 ```bash
-g++ src/main.cpp src/particle.cpp src/sand_sim.cpp src/glad.c -Iinclude -Llib -o main.exe -lglfw3 -lopengl32 -lgdi32 -luser32 -lkernel32
+g++ src/main.cpp src/particle.cpp src/sand_sim.cpp src/glad.c -Iinclude -Llib -o sandsim.exe -lglfw3 -lopengl32 -lgdi32 -luser32 -lkernel32
 ```
 
 * **MSVC**
 ```cmd
-cl src/main.cpp src/particle.cpp src/sand_sim.cpp src/glad.c /I include /Fe:main.exe /link /LIBPATH:lib glfw3.lib opengl32.lib gdi32.lib user32.lib shell32.lib
+cl src/main.cpp src/particle.cpp src/sand_sim.cpp src/glad.c /I include /Fe:sandsim.exe /link /LIBPATH:lib glfw3.lib opengl32.lib gdi32.lib user32.lib shell32.lib
 ```
 
 ### 4. Run
