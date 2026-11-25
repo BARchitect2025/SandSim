@@ -27,7 +27,7 @@ cd sandsim
 ### 2. Dependencies
 - GLFW
 
-### Or compile from source:
+### 3. Compile
 
 #### Linux:
 ```bash
