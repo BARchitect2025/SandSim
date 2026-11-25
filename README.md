@@ -4,6 +4,20 @@ This is a sand simulation written in C++ with OpenGL.
 
 ## Running
 
+### 1. Download
+Download from [Releases](https://github.com/barchitect2025/sandsim/releases).
+
+### 2. Run
+```bash
+# Linux / MacOS
+./main
+
+# Windows
+main.exe
+```
+
+## Compiling from source
+
 ### 1. Clone the repository
 ```bash
 git clone https://github.com/barchitect2025/sandsim.git
@@ -13,7 +27,7 @@ cd sandsim
 ### 2. Dependencies
 - GLFW
 
-### 3. Compile
+### Or compile from source:
 
 #### Linux:
 ```bash
