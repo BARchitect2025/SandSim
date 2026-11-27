@@ -1,27 +1,25 @@
 #ifndef PARTICLE_H_
 #define PARTICLE_H_
 
-enum class ParticleType {
-    SAND,
-    WATER,
-    CLONER,
-    EMPTY
+#include <cstdint>
+
+enum class ParticleType : uint8_t {
+    SAND = 0,
+    WATER = 1,
+    CLONER = 2,
+    EMPTY = 3
 };
 
 struct Color {
-    char r, g, b, a;
+    uint8_t r, g, b, a;
 };
 
-const Color SAND_COLOR = {(char)204, (char)188, (char)138, (char)255};
-const Color WATER_COLOR = {(char)14, (char)135, (char)204, (char)255};
-
-struct MoveFlags {
-    bool down, down_left, down_right, left, right;
-};
+const Color SAND_COLOR = {204, 188, 138, 255};
+const Color WATER_COLOR = {14, 135, 204, 255};
 
 struct Particle {
     float x, y;
-    char r, g, b, a;
+    uint8_t r, g, b, a;
 
     ParticleType type;
 };

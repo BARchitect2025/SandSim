@@ -26,11 +26,19 @@ const char* fs_source = "#version 330 core\n"
 "}\n";
 
 bool mouse_button_pressed = false;
+bool paused = false;
+bool shifted = false;
 
-int WIDTH = 800, HEIGHT = 600;
+int add_radius = 2;
 
-float delta = 0.0f;
-float last_frame = 0.0f;
+int width = 800, height = 600;
+
+int tick_rate = 60;
+double TIMESTEP = 1.0f / tick_rate;
+int ticks = 0;
+
+double delta = 0.0f;
+double last_frame = 0.0f;
 
 int mouse_pos_pixels_x = 0, mouse_pos_pixels_y = 0;
 
@@ -41,6 +49,7 @@ GLuint compile_shaders(const char *vs_source, const char *fs_source);
 void mouse_pos_callback(GLFWwindow* window, double xpos, double ypos);
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 void mouse_scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
 int main() {
     // Init GLFW
@@ -49,7 +58,7 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Sand", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(width, height, "Sand", NULL, NULL);
     if (window == NULL) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -59,8 +68,7 @@ int main() {
     glfwSetCursorPosCallback(window, mouse_pos_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetScrollCallback(window, mouse_scroll_callback);
-
-    glfwSwapInterval(0);
+    glfwSetKeyCallback(window, key_callback);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         std::cout << "Failed to initialize GLAD" << std::endl;
@@ -75,7 +83,7 @@ int main() {
 
     std::uniform_int_distribution<int> dist(1, 99);
 
-    sim.init(WIDTH / 4, HEIGHT / 4, gen);
+    sim.init(width / 4, height / 4, gen);
 
     // OpenGL shader compilation
     GLuint program = compile_shaders(vs_source, fs_source);
@@ -97,16 +105,14 @@ int main() {
 
     glPointSize(4.0f);
 
-    float accumulator = 0.0f;
-    const float TIMESTEP = 1.0f / 60.0f;
+    double accumulator = 0.0f;
 
     std::vector<float> deltas;
-    int ticks = 0;
 
     while (!glfwWindowShouldClose(window)) {
         int max_particles = sim.get_max_particles();
 
-        float current_frame = static_cast<float>(glfwGetTime());
+        double current_frame = static_cast<float>(glfwGetTime());
         delta = current_frame - last_frame;
         last_frame = current_frame;
         accumulator += delta;
@@ -120,9 +126,9 @@ int main() {
             if (gx >= 0 && gx < 200 && gy >= 0 && gy < 150) {
                 int r = (int)((dist(gen) - 50) / 5);
                 if (selected_type == ParticleType::SAND) {
-                    sim.add_particles(selected_type, SAND_COLOR.r + r, SAND_COLOR.g + r, SAND_COLOR.b + r, SAND_COLOR.a, gx, gy, 1);
+                    sim.add_particles(selected_type, SAND_COLOR.r + r, SAND_COLOR.g + r, SAND_COLOR.b + r, SAND_COLOR.a, gx, gy, add_radius);
                 } else if (selected_type == ParticleType::WATER) {
-                    sim.add_particles(selected_type, WATER_COLOR.r + r, WATER_COLOR.g + r, WATER_COLOR.b + r, WATER_COLOR.a, gx, gy, 1);
+                    sim.add_particles(selected_type, WATER_COLOR.r + r, WATER_COLOR.g + r, WATER_COLOR.b + r, WATER_COLOR.a, gx, gy, add_radius);
                 }
             }
         }
@@ -130,12 +136,18 @@ int main() {
         while (accumulator > TIMESTEP) {
             accumulator -= TIMESTEP;
 
-            sim.update(gen);
+            if (!paused) {
+                sim.update(gen);
+            }
 
             ++ticks;
 
-            if (ticks == 60) {
-                std::cout << "FPS: " << deltas.size() / 60.0f << std::endl;
+            if (ticks >= tick_rate) {
+                float total = 0.0f;
+                for (int i = 0; i < deltas.size(); ++i) {
+                    total += deltas[i];
+                }
+                std::cout << "FPS: " << (int)(deltas.size() / total + 0.5f) << std::endl;
                 deltas = std::vector<float>();
                 ticks = 0;
             }
@@ -193,7 +205,7 @@ GLuint compile_shaders(const char *vs_source, const char *fs_source) {
 
 void mouse_pos_callback(GLFWwindow* window, double xpos, double ypos) {
     mouse_pos_pixels_x = (int)xpos;
-    mouse_pos_pixels_y = HEIGHT - 1 - (int)ypos;
+    mouse_pos_pixels_y = height - 1 - (int)ypos;
 }
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
@@ -205,12 +217,21 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 }
 
 void mouse_scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
-    selected_type_num += (int)yoffset;
-
-    if (selected_type_num > 2) {
-        selected_type_num = 0;
-    } else if (selected_type_num < 0) {
-        selected_type_num = 2;
+    if (!shifted) {
+        selected_type_num += (int)yoffset;
+        if (selected_type_num > 2) {
+            selected_type_num = 0;void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+        } else if (selected_type_num < 0) {
+            selected_type_num = 2;
+        }
+    } else {
+        if (yoffset < 0.0 && add_radius <= 0) {
+            // Do nothing
+        } else if (yoffset > 0.0 && add_radius >= 12) {
+            // Do nothing
+        } else {
+            add_radius += (int)yoffset;
+        }
     }
 
     switch (selected_type_num) {
@@ -218,5 +239,23 @@ void mouse_scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
         case 1: selected_type = ParticleType::WATER; break;
         case 2: selected_type = ParticleType::CLONER; break;
         default: break;
+    }
+}
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+        paused = !paused;
+    } else if (key == GLFW_KEY_UP && action == GLFW_PRESS && tick_rate < 240.0f) {
+        tick_rate += 60;
+        TIMESTEP = 1.0f / tick_rate;
+    } else if (key == GLFW_KEY_DOWN && action == GLFW_PRESS && tick_rate > 60.0f) {
+        tick_rate -= 60;
+        TIMESTEP = 1.0f / (float)tick_rate;
+    } else if (key == GLFW_KEY_LEFT_SHIFT) {
+        if (action == GLFW_PRESS) {
+            shifted = true;
+        } else if (action == GLFW_RELEASE) {
+            shifted = false;
+        }
     }
 }

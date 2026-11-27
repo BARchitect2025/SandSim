@@ -25,7 +25,7 @@ private:
     std::vector<bool> updated;
     std::vector<Particle> particles;
 
-    MoveFlags can_move(int i, int j);
+    uint16_t can_move(int i, int j);
 };
 
 #endif
